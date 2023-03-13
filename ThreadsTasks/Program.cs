@@ -20,6 +20,7 @@ namespace TreadsTasks
     class Program
     {
         static List<int> changedVariables = new List<int>();
+        static object lockObject = new object();
 
         static void StartThread(int number)
         {
@@ -68,6 +69,57 @@ namespace TreadsTasks
             task.Start();
         }
 
+        static void StartLockedThread(int number)
+        {
+            ThreadStart threadStart = new ThreadStart(() =>
+            {
+                UInt64 result = 1;
+                for (int i = 1; i < 50; i++)
+                {
+                    result *= (UInt64)i;
+                }
+                lock (lockObject)
+                {
+                    if (number < 50)
+                    {
+                        changedVariables.Add(number);
+                    }
+                    else
+                    {
+                        changedVariables.RemoveAt(changedVariables.Count - 1);
+                    }
+                }
+                Console.WriteLine($"thread #{number} finished, length of list = {changedVariables.Count}");
+            });
+            Thread thread = new Thread(threadStart);
+            thread.Start();
+        }
+
+        static void StartLockedTask(int number)
+        {
+            Task task = new Task(() =>
+            {
+                UInt64 result = 1;
+                for (int i = 1; i < 50; i++)
+                {
+                    result *= (UInt64)i;
+                }
+                lock (lockObject)
+                {
+                    if (number < 50)
+                    {
+                        changedVariables.Add(number);
+                    }
+                    else
+                    {
+                        changedVariables.RemoveAt(changedVariables.Count - 1);
+                    }
+                }
+                Console.WriteLine($"task #{number} finished, length of list = {changedVariables.Count}");
+            });
+            task.Start();
+        }
+
         /*
          * Threads and tasks finish in random order, 
          * System.ArgumentOutOfRangeException can happen 
@@ -85,21 +137,16 @@ namespace TreadsTasks
 
         /*
          * Threads and tasks run in orderly fashion,
-         * new threads/tasks do not start until previous ones
-         * finish.
+         * new threads/tasks do not access the array 
+         * until previous ones are done with it.
          */
         static void RunWithLock()
         {
-            object lockObject = new object();
+            ;
             for (int i = 0; i < 100; i++)
             {
-                lock (lockObject){
-                    StartThread(i);
-                }
-                lock (lockObject)
-                {
-                    StartTask(i);
-                }
+                StartLockedThread(i);
+                StartLockedTask(i);
             }
         }
 
